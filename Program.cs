@@ -1,21 +1,23 @@
 using Newtonsoft.Json;
+using System.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
 List<char> b64Alphabet = new List<char> { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J','K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '_'};
 Dictionary<string, string> urlDict = new Dictionary<string, string>();
+string domain = @"https://minima.tuberculosis.dev/";
 
 app.UseHttpsRedirection();
 
 app.MapGet("/", () => "Hello dere");
 
-app.MapGet("/get/{id}", (string id) => {
+app.MapGet("/{id}", (string id) => {
     try
     {
         if (urlDict.ContainsKey(id))
         {
-            return Results.Content(urlDict[id]);
+            return Results.Redirect(HttpUtility.UrlDecode(urlDict[id]));
         }
         else
         {
@@ -28,7 +30,7 @@ app.MapGet("/get/{id}", (string id) => {
     }
 });
 
-app.MapPost("/add/{url}", (string url) => {
+app.MapPost("/{url}", (string url) => {
     try
     {
         string hash = Encode64(HashString(url)).Substring(0, 12);
@@ -36,7 +38,7 @@ app.MapPost("/add/{url}", (string url) => {
         urlDict.Add(hash, url);
         Console.WriteLine($"{hash} relates to {url}");
         SaveDict(urlDict, "dict.json");
-        return Results.Created($"/get/{hash}", hash);
+        return Results.Created($"/{hash}", $"{domain}{hash}");
     } catch (Exception ex)
     {
         Console.WriteLine(ex.Message);
