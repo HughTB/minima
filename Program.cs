@@ -8,7 +8,10 @@ List<char> b64Alphabet = new List<char> { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'
 Dictionary<string, string> urlDict = new Dictionary<string, string>();
 string domain = @"https://minima.tuberculosis.dev/";
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.MapGet("/", () => "Hello dere");
 
