@@ -3,6 +3,7 @@ using System.Web;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Net;
 
+var random = new Random();
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -13,7 +14,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 var app = builder.Build();
 
 List<char> b64Alphabet = new List<char> { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '_' };
-Dictionary<string, string> urlDict = new Dictionary<string, string>();
+Dictionary<string, string> ?urlDict = new Dictionary<string, string>();
 string domain = @"https://minima.tuberculosis.dev/";
 
 if (!app.Environment.IsDevelopment())
@@ -23,7 +24,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-   ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
 app.MapGet("/", () => "Hello dere");
@@ -32,14 +33,7 @@ app.MapGet("/{id}", (string id) =>
 {
     try
     {
-        if (urlDict.ContainsKey(id))
-        {
-            return Results.Redirect(HttpUtility.UrlDecode(urlDict[id]));
-        }
-        else
-        {
-            return Results.NotFound($"{id} was not found in the database");
-        }
+        return urlDict.ContainsKey(id) ? Results.Redirect(HttpUtility.UrlDecode(urlDict[id])) : Results.NotFound($"{id} was not found in the database");
     }
     catch (Exception ex)
     {
@@ -52,7 +46,14 @@ app.MapPost("/{url}", (string url) =>
 {
     try
     {
-        string hash = Encode64(HashString(url)).Substring(0, 12);
+        string hash;
+        if (urlDict.ContainsValue(url))
+        {
+            hash = urlDict.FirstOrDefault(x => x.Value == url).Key;
+            return Results.Created($"/{hash}", $"{domain}{hash}");
+        }
+
+        hash = newHash(8);
 
         urlDict.Add(hash, url);
         Console.WriteLine($"{hash} relates to {url}");
@@ -69,27 +70,22 @@ app.MapPost("/{url}", (string url) =>
 LoadDict(out urlDict, "dict.json");
 app.Run();
 
-string Encode64(string input)
+string newHash(int length)
 {
-    return System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(input)).Replace('+', '-').Replace('/', '_');
-}
+    string hash = "";
+    bool used = true;
 
-string Decode64(string input)
-{
-    return System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String(input.Replace('-', '+').Replace('_', '/')));
-}
-
-string HashString(string input, string salt = "")
-{
-    if (string.IsNullOrEmpty(input)) { return String.Empty; }
-
-    using (var sha = System.Security.Cryptography.SHA1.Create())
+    while (used) 
     {
-        byte[] textBytes = System.Text.Encoding.UTF8.GetBytes(input + salt);
-        byte[] hashBytes = sha.ComputeHash(textBytes);
+        for (int i = 0; i < length; i++)
+        {
+            hash += b64Alphabet[random.Next(b64Alphabet.Count)];
+        }
 
-        return BitConverter.ToString(hashBytes).Replace("-", String.Empty);
+        if (!urlDict.ContainsKey(hash)) { used = false; }
     }
+
+    return hash;
 }
 
 bool LoadDict(out Dictionary<string, string> ?dict, string filepath)
@@ -97,6 +93,13 @@ bool LoadDict(out Dictionary<string, string> ?dict, string filepath)
     bool success = false;
     Dictionary<string, string> ?loadedDict = new Dictionary<string, string>();
     Console.WriteLine("Loading dictionary...");
+
+    if (!File.Exists(filepath))
+    {
+        dict = loadedDict;
+        SaveDict(loadedDict, filepath);
+        return true;
+    }
 
     using (StreamReader sr = new StreamReader(filepath))
     {
@@ -109,7 +112,7 @@ bool LoadDict(out Dictionary<string, string> ?dict, string filepath)
         catch (Exception ex)
         {
             Console.WriteLine(ex.Message);
-        }
+        } 
     }
 
     dict = loadedDict;
@@ -128,7 +131,7 @@ bool SaveDict(Dictionary<string, string> dict, string filePath)
             sw.Write(JsonConvert.SerializeObject(dict, Formatting.Indented));
             success = true;
             Console.WriteLine("Save successful");
-        } 
+        }
         catch (Exception ex)
         {
             Console.WriteLine(ex.Message);
