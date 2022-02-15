@@ -14,12 +14,13 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+/*
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
-app.UseAuthentication();
+app.UseAuthentication();*/
 
 app.MapGet("/", () => "Hello dere");
 
