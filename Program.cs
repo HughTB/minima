@@ -10,14 +10,6 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Add(IPAddress.Parse("127.0.0.1"));
 });
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy(name: "CorsPolicy", builder =>
-    {
-        builder.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
-    });
-});
-
 var app = builder.Build();
 
 List<char> b64Alphabet = new List<char> { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '_' };
@@ -29,11 +21,9 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-app.UseCors("CorsPolicy");
-
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-   ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
 app.MapGet("/", () => Results.Redirect("https://tuberculosis.dev/minima.html"));
@@ -62,12 +52,26 @@ app.MapPost("/{url}", (string url) =>
 {
     try
     {
-        string hash = Encode64(HashString(url)).Substring(0, 12);
+        string hash = Encode64(HashString(url)).Substring(0, 8);
 
-        urlDict.Add(hash, url);
-        Console.WriteLine($"{hash} relates to {url}");
-        SaveDict(urlDict, "dict.json");
-        return Results.Created($"/{hash}", $"{domain}{hash}");
+        if (urlDict.ContainsValue(url) && urlDict[hash] == url)
+        {
+            return Results.Created($"/{hash}", $"{domain}{hash}");
+        }
+        else
+        {
+            string? ignore;
+
+            while (urlDict.TryGetValue(hash, out ignore))
+            {
+                hash = Encode64(HashString(url, hash)).Substring(0, 8);
+            }
+
+            urlDict.Add(hash, url);
+            Console.WriteLine($"{hash} relates to {url}");
+            SaveDict(urlDict, "dict.json");
+            return Results.Created($"/{hash}", $"{domain}{hash}");
+        }
     }
     catch (Exception ex)
     {
@@ -102,10 +106,10 @@ string HashString(string input, string salt = "")
     }
 }
 
-bool LoadDict(out Dictionary<string, string> ?dict, string filepath)
+bool LoadDict(out Dictionary<string, string>? dict, string filepath)
 {
     bool success = false;
-    Dictionary<string, string> ?loadedDict = new Dictionary<string, string>();
+    Dictionary<string, string>? loadedDict = new Dictionary<string, string>();
     Console.WriteLine("Loading dictionary...");
 
     using (StreamReader sr = new StreamReader(filepath))
@@ -138,7 +142,7 @@ bool SaveDict(Dictionary<string, string> dict, string filePath)
             sw.Write(JsonConvert.SerializeObject(dict, Formatting.Indented));
             success = true;
             Console.WriteLine("Save successful");
-        } 
+        }
         catch (Exception ex)
         {
             Console.WriteLine(ex.Message);
